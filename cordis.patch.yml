@@ -1,0 +1,9 @@
+# dsh-task-notify — configuration layer.
+#
+# A pure-UI bundle: it watches the session list and shows a desktop
+# notification (bottom-right, like opencode) when a running session/task
+# settles. No credentials or behavior config is required; this patch inserts
+# the plugin row.
+- insert:
+    - id: task-notify
+      name: dsh-task-notify
