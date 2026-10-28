@@ -1,6 +1,6 @@
 {
   "name": "dsh-task-notify",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "DeepSeek Harness plugin: pop a desktop toast (bottom-right, like opencode) when a task / agent run completes or fails.",
   "type": "module",
@@ -17,7 +17,11 @@
       "patch": "./cordis.patch.yml"
     },
     "client": {
-      "platform": "web"
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale"
+      ]
     }
   },
   "exports": {
@@ -40,7 +44,8 @@
   ],
   "license": "MIT",
   "engines": {
-    "node": ">=18.17.0"
+    "node": ">=18.17.0",
+    "dsh": ">=0.2.1-rc.1 <0.3.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.0"

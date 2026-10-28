@@ -2,9 +2,9 @@
  * dsh-task-notify — Client (browser) half.
  *
  * Shows a desktop notification (bottom-right, like opencode) when a task /
- * agent run completes. Detection mirrors the task-board runner: poll
- * `sessions.list`, watch for a session that was running and stops, then read
- * `sessions.history` for the final `turn/end` reason to decide success/failure.
+ * agent run completes. Detection subscribes to the client runtime's session
+ * list: a row whose `running` bit falls true → false has just settled, and its
+ * session face carries `lastAgentError` when the failure had no turn position.
  *
  * Notifications: native `new Notification()` in the Electron renderer (already
  * granted), with an in-page bottom-right toast as fallback. Only fires while
@@ -14,35 +14,28 @@ import { CSS } from './styles.js';
 
 export const name = 'dsh-task-notify';
 
-/** Inject the connection (session wire) and locale services. */
-export const inject = ['connection', 'locale'];
+/** Inject the client session list and locale services. */
+export const inject = ['sessions', 'locale'];
 
 const NS = 'taskNotify';
 
 const zh = {
   doneTitle: '任务完成',
   failTitle: '任务失败',
-  cancelTitle: '任务已取消',
   doneBody: '已完成',
   failBody: '执行失败',
-  cancelBody: '已取消',
   unknown: '未命名任务',
   duration: '{min}分{sec}秒',
 };
 const en = {
   doneTitle: 'Task complete',
   failTitle: 'Task failed',
-  cancelTitle: 'Task cancelled',
   doneBody: 'Finished',
   failBody: 'Failed',
-  cancelBody: 'Cancelled',
   unknown: 'Untitled task',
   duration: '{min}m {sec}s',
 };
-const LOCALES = { zh, en };
 
-/** Poll cadence (ms) for the session list. */
-const POLL_MS = 4000;
 /** Minimum gap between notifications (ms). */
 const MIN_INTERVAL_MS = 3000;
 /** Only notify while the window is not focused (like opencode). */
@@ -90,18 +83,22 @@ export const apply = (ctx) => {
     };
   }, 'ntf: styles');
 
-  ctx.effect(() => ctx.locale.register(NS, LOCALES), 'ntf: dictionary');
+  ctx.effect(() => {
+    const offZh = ctx.locale.register(NS, 'zh', zh);
+    const offEn = ctx.locale.register(NS, 'en', en);
+    return () => { offZh(); offEn(); };
+  }, 'ntf: dictionary');
   const t = ctx.locale.bind(NS);
 
-  const connection = ctx.get('connection');
-  if (connection === void 0 || connection.api?.sessions === void 0) {
+  const sessions = ctx.get('sessions');
+  if (sessions === void 0 || sessions.list === void 0) {
     return;
   }
-  const sessions = connection.api.sessions;
 
-  /** sessionId -> { title, startedAt } for sessions observed running. */
+  /** sessionId -> epoch ms when the run was first observed. */
+  const startedAt = new Map();
+  /** sessionId -> last observed `running` bit. */
   const running = new Map();
-  let baseline = false;
   let lastNotifyAt = 0;
 
   const notify = (title, body) => {
@@ -122,55 +119,56 @@ export const apply = (ctx) => {
     showToast(title, body);
   };
 
-  const settle = async (sessionId, title, startedAt) => {
-    let outcome = 'done';
+  /** A live failure outside a turn position is the only outcome the list mirror keeps. */
+  const failed = (sessionId) => {
     try {
-      const r = await sessions.history({ sessionId });
-      if (r.result.ok) {
-        const events = r.result.value.events ?? [];
-        const turnEnd = [...events].reverse().find((entry) => entry?.event?.type === 'turn/end');
-        const reason = turnEnd?.event?.data?.reason;
-        if (reason?.kind === 'error') outcome = 'failed';
-        else if (reason?.kind === 'cancelled' || reason?.kind === 'aborted') outcome = 'cancelled';
-      }
+      const snapshot = sessions.binding(sessionId)?.session.getSnapshot();
+      return snapshot?.lastAgentError !== undefined && snapshot?.lastAgentError !== null;
     } catch {
-      // outcome stays 'done'; the session simply stopped
+      return false;
     }
-    const name = title || t('unknown');
-    const dur = formatDuration(t, Date.now() - startedAt);
-    if (outcome === 'failed') notify(t('failTitle'), `${t('failBody')} · ${name} · ${dur}`);
-    else if (outcome === 'cancelled') notify(t('cancelTitle'), `${t('cancelBody')} · ${name}`);
-    else notify(t('doneTitle'), `${t('doneBody')} · ${name} · ${dur}`);
   };
 
-  const poll = async () => {
-    try {
-      const r = await sessions.list({});
-      if (!r.result.ok) return;
-      const items = r.result.value.items ?? [];
-      for (const item of items) {
-        if (item.running) {
-          const rec = running.get(item.sessionId);
-          if (rec === undefined) {
-            running.set(item.sessionId, { title: item.title, startedAt: Date.now() });
-          } else if (item.title !== undefined) {
-            rec.title = item.title;
-          }
-        } else if (running.has(item.sessionId)) {
-          const rec = running.get(item.sessionId);
-          running.delete(item.sessionId);
-          if (baseline) settle(item.sessionId, rec.title, rec.startedAt);
-        }
+  const settle = (row) => {
+    const name = row.displayTitle || row.title || t('unknown');
+    const start = startedAt.get(row.id);
+    const dur = start === undefined ? null : formatDuration(t, Date.now() - start);
+    const tail = dur === null ? name : `${name} · ${dur}`;
+    if (failed(row.id)) notify(t('failTitle'), `${t('failBody')} · ${tail}`);
+    else notify(t('doneTitle'), `${t('doneBody')} · ${tail}`);
+  };
+
+  const onChange = () => {
+    const { ids, byId } = sessions.list.getSnapshot();
+    const seen = new Set();
+    for (const id of ids) {
+      const row = byId[id];
+      if (row === void 0) continue;
+      seen.add(id);
+      const wasRunning = running.get(id);
+      if (row.running) {
+        if (!startedAt.has(id)) startedAt.set(id, Date.now());
+        running.set(id, true);
+        continue;
       }
-      baseline = true;
-    } catch {
-      // transient network error; try again on the next tick
+      // A pending interaction stops the run but still needs the user; it is
+      // not a completion, so the sidebar badge (not a toast) owns that case.
+      if (wasRunning === true && row.pendingInteraction === void 0) settle(row);
+      running.set(id, false);
+      startedAt.delete(id);
+    }
+    // Forget rows that left the list (removed sessions) so the maps stay bounded.
+    for (const id of [...running.keys()]) {
+      if (!seen.has(id)) {
+        running.delete(id);
+        startedAt.delete(id);
+      }
     }
   };
 
   ctx.effect(() => {
-    poll();
-    const timer = setInterval(poll, POLL_MS);
-    return () => clearInterval(timer);
+    const off = sessions.list.subscribe(onChange);
+    onChange(); // seed the running baseline; rows already stopped stay quiet
+    return off;
   }, 'ntf: session watcher');
 };
