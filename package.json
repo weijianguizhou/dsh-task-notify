@@ -1,10 +1,17 @@
 {
-  "name": "dsh-task-notify",
+  "name": "dsh-desktop-task-notify",
   "version": "0.2.0",
-  "private": true,
   "description": "DeepSeek Harness plugin: pop a desktop toast (bottom-right, like opencode) when a task / agent run completes or fails.",
   "type": "module",
   "main": "src/host/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/weijianguizhou/dsh-task-notify.git"
+  },
+  "homepage": "https://github.com/weijianguizhou/dsh-task-notify#readme",
+  "bugs": {
+    "url": "https://github.com/weijianguizhou/dsh-task-notify/issues"
+  },
   "files": [
     "src",
     "lib",
@@ -39,6 +46,7 @@
     "deepseek-harness",
     "plugin",
     "notification",
+    "notify",
     "task",
     "desktop"
   ],

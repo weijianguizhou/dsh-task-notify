@@ -1,5 +1,5 @@
 /**
- * dsh-task-notify — component stylesheet (fallback in-page toast).
+ * dsh-desktop-task-notify — component stylesheet (fallback in-page toast).
  *
  * The primary path is the native desktop Notification (Electron renderer),
  * which Windows shows bottom-right like opencode. This CSS styles the in-page

@@ -12,10 +12,14 @@
  *   node scripts/build-client.mjs
  */
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+// The module id must equal the manifest package name — the loader resolves
+// rows by package name, so derive it instead of hardcoding.
+const { name: packageName } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 // Platform seed words DSH's loader module table answers via the injected
 // `require`. This bundle only needs the host context, so nothing is imported;
@@ -43,7 +47,7 @@ await build({
   sourcemap: true,
   external: PLATFORM_MODULES,
   banner: {
-    js: "window.__ModuleLoader__.load({ id: 'dsh-task-notify', factory: (require) => { var module = { exports: {} }; var exports = module.exports; Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });",
+    js: `window.__ModuleLoader__.load({ id: ${JSON.stringify(packageName)}, factory: (require) => { var module = { exports: {} }; var exports = module.exports; Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });`,
   },
   footer: {
     js: 'return module.exports; } });',

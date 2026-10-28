@@ -1,4 +1,4 @@
-# dsh-task-notify
+# dsh-desktop-task-notify
 
 DSH（DeepSeek Harness）插件：任务/Agent 运行结束时，在桌面右下角弹出完成通知（和 opencode 一样）。
 
@@ -15,13 +15,19 @@ DSH（DeepSeek Harness）插件：任务/Agent 运行结束时，在桌面右下
 
 ## 安装
 
-Desktop 的 `desktop` profile 由 Electron 托管，npm 安装的 CLI 不接受该 profile 的插件操作；请使用 Desktop 自带的命令运行时安装：
+从 npm 安装（Desktop 侧边栏 → **Plugins** → **Add plugin**，填 `dsh-desktop-task-notify@0.2.0`；或用 Desktop 自带的命令运行时）：
 
 ```bash
-dsh plugin --profile desktop add link:/path/to/dsh-task-notify
+dsh plugin --profile desktop add dsh-desktop-task-notify@0.2.0
 ```
 
-或在 Desktop 的 **设置 → 插件** 里以开发目标（`link:`）添加，并确保它出现在 profile 的 `dsh.profile.bundles` 列表中。装完重启 DSH Desktop 即生效。
+本地开发用绝对路径（Add plugin 里填目录路径）：
+
+```bash
+dsh plugin --profile desktop add link:/path/to/dsh-desktop-task-notify
+```
+
+Desktop 的 `desktop` profile 由 Electron 托管，npm 安装的 CLI 不接受该 profile 的插件操作；请用 Desktop 自带的命令运行时（或上面的插件页面）。装完重启 DSH Desktop 即生效。
 
 ## 开发构建
 

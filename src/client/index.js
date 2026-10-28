@@ -1,5 +1,5 @@
 /**
- * dsh-task-notify — Client (browser) half.
+ * dsh-desktop-task-notify — Client (browser) half.
  *
  * Shows a desktop notification (bottom-right, like opencode) when a task /
  * agent run completes. Detection subscribes to the client runtime's session
@@ -12,7 +12,7 @@
  */
 import { CSS } from './styles.js';
 
-export const name = 'dsh-task-notify';
+export const name = 'dsh-desktop-task-notify';
 
 /** Inject the client session list and locale services. */
 export const inject = ['sessions', 'locale'];
@@ -48,8 +48,8 @@ let styleEl = null;
 function ensureStyle() {
   if (styleEl !== null) return;
   styleEl = document.createElement('style');
-  styleEl.dataset.plugin = 'dsh-task-notify';
-  styleEl.dataset.pluginCss = 'dsh-task-notify/toast';
+  styleEl.dataset.plugin = 'dsh-desktop-task-notify';
+  styleEl.dataset.pluginCss = 'dsh-desktop-task-notify/toast';
   styleEl.textContent = CSS;
   document.head.appendChild(styleEl);
 }
